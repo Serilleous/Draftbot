@@ -1,0 +1,68 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: vote-tally-redis
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: vote-tally-redis
+    spec:
+      containers:
+      - name: vote-tally-redis
+        image: redis
+        ports:
+        - containerPort: 6379
+          name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote-tally-redis
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: vote-tally-redis
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: vote-tally
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5 
+  template:
+    metadata:
+      labels:
+        app: vote-tally
+    spec:
+      containers:
+      - name: vote-tally
+        image: ironferret.azurecr.io/draft_vote-tally:v1
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: 250m
+          limits:
+            cpu: 500m
+        env:
+        - name: REDIS
+          value: "vote-tally-redis"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote-tally
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 5000
+  selector:
+    app: vote-tally
